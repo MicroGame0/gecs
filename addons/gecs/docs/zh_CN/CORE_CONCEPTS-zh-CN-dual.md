@@ -10,7 +10,7 @@ This guide explains the fundamental concepts that make GECS powerful. After read
 ## 📋 Prerequisites
 📋 前置条件
 
-*   Completed [Getting Started Guide](GETTING_STARTED.md)
+*   Completed [Getting Started Guide](GETTING_STARTED-zh-CN-dual.md)
     完成入门指南
 *   Basic GDScript knowledge
     基础 GDScript 知识
@@ -796,21 +796,21 @@ Now that you understand GECS's core concepts:
     尝试探索复杂实体交互的关系
 3.  **Design component hierarchies** that support your game's needs
     设计支持你游戏需求的组件层次结构
-4.  **Learn optimization techniques** in [Performance Guide](PERFORMANCE_OPTIMIZATION.md)
+4.  **Learn optimization techniques** in [Performance Guide](PERFORMANCE_OPTIMIZATION-zh-CN-dual.md)
     学习性能指南中的优化技巧
-5.  **Master common patterns** in [Best Practices Guide](BEST_PRACTICES.md)
+5.  **Master common patterns** in [Best Practices Guide](BEST_PRACTICES-zh-CN-dual.md)
     掌握最佳实践指南中的常见模式
 
 ## 📚 Related Documentation
 📚 相关文档
 
-*   **[Getting Started](GETTING_STARTED.md)** - Build your first ECS project
+*   **[Getting Started](GETTING_STARTED-zh-CN-dual.md)** - Build your first ECS project
     入门指南 - 构建你的第一个 ECS 项目
-*   **[Best Practices](BEST_PRACTICES.md)** - Write maintainable ECS code
+*   **[Best Practices](BEST_PRACTICES-zh-CN-dual.md)** - Write maintainable ECS code
     最佳实践 - 编写可维护的 ECS 代码
-*   **[Performance Optimization](PERFORMANCE_OPTIMIZATION.md)** - Make your games run fast
+*   **[Performance Optimization](PERFORMANCE_OPTIMIZATION-zh-CN-dual.md)** - Make your games run fast
     性能优化 - 让你的游戏运行快速
-*   **[Troubleshooting](TROUBLESHOOTING.md)** - Solve common issues
+*   **[Troubleshooting](TROUBLESHOOTING-zh-CN-dual.md)** - Solve common issues
     故障排除 - 解决常见问题
 
 * * *
