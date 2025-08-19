@@ -278,7 +278,7 @@ Main.tscn
 ### 🧠 Understand the Concepts
 🧠 理解概念
 
-**→ [Core Concepts Guide](CORE_CONCEPTS.md)** - Deep dive into Entities, Components, Systems, and Relationships
+**→ [Core Concepts Guide](CORE_CONCEPTS-zh-CN-dual.md)** - Deep dive into Entities, Components, Systems, and Relationships
 → 核心概念指南 - 深入了解实体、组件、系统和关系
 
 ### 🔧 Add More Features
@@ -299,19 +299,19 @@ Try adding these to your moving player:
 ### 📚 Learn Best Practices
 📚 学习最佳实践
 
-**→ [Best Practices Guide](BEST_PRACTICES.md)** - Write maintainable ECS code
+**→ [Best Practices Guide](BEST_PRACTICES-zh-CN-dual.md)** - Write maintainable ECS code
 → 最佳实践指南 - 编写可维护的 ECS 代码
 
 ### 🔧 Explore Advanced Features
 🔧 探索高级功能
 
-*   **[Component Queries](COMPONENT_QUERIES.md)** - Filter by component property values
+*   **[Component Queries](COMPONENT_QUERIES-zh-CN-dual.md)** - Filter by component property values
     组件查询 - 通过组件属性值进行过滤
-*   **[Relationships](RELATIONSHIPS.md)** - Link entities together for complex interactions
+*   **[Relationships](RELATIONSHIPS-zh-CN-dual.md)** - Link entities together for complex interactions
     关系 - 用于复杂交互的实体链接
-*   **[Observers](OBSERVERS.md)** - Reactive systems that respond to changes
+*   **[Observers](OBSERVERS-zh-CN-dual.md)** - Reactive systems that respond to changes
     观察者 - 响应变化的反应式系统
-*   **[Performance Optimization](PERFORMANCE_OPTIMIZATION.md)** - Make your games run fast
+*   **[Performance Optimization](PERFORMANCE_OPTIMIZATION-zh-CN-dual.md)** - Make your games run fast
     性能优化 - 让你的游戏运行得更快
 
 ## ❓ Having Issues?
@@ -339,7 +339,7 @@ Try adding these to your moving player:
 *   Ensure GECS plugin is enabled
     确保已启用 GECS 插件
 
-**Still stuck?** → [Troubleshooting Guide](TROUBLESHOOTING.md)
+**Still stuck?** → [Troubleshooting Guide](TROUBLESHOOTING-zh-CN-dual.md)
 仍然卡住了？→ 故障排查指南
 
 ## 🏆 What's Next?
@@ -357,7 +357,7 @@ You're now ready to build amazing games with GECS! The Entity-Component-System p
 *   **Optimize performance** - GECS handles efficient querying for you
     优化性能 - GECS 会为你处理高效的查询
 
-**Ready to dive deeper?** Start with [Core Concepts](CORE_CONCEPTS.md) to really understand what makes ECS powerful.
+**Ready to dive deeper?** Start with [Core Concepts](CORE_CONCEPTS-zh-CN-dual.md) to really understand what makes ECS powerful.
 准备好深入了解了吗？从核心概念开始，真正理解 ECS 的强大之处。
 
 **Need help?** [Join our Discord community](https://discord.gg/eB43XU2tmn) for support and discussions.
