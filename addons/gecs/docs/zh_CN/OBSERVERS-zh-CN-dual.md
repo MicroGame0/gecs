@@ -10,9 +10,9 @@ Observers provide a reactive programming model where systems automatically respo
 ## 📋 Prerequisites
 📋 前置条件
 
-*   Understanding of [Core Concepts](CORE_CONCEPTS.md)
+*   Understanding of [Core Concepts](CORE_CONCEPTS-zh-CN-dual.md)
     对核心概念的理解
-*   Familiarity with [Systems](CORE_CONCEPTS.md#systems)
+*   Familiarity with [Systems](CORE_CONCEPTS-zh-CN-dual.md#systems)
     系统熟悉度
 *   Observers must be added to the World to function
     观察者必须添加到世界中才能发挥作用
@@ -426,11 +426,11 @@ func match():
 ## 📚 Related Documentation
 📚 相关文档
 
-*   **[Core Concepts](CORE_CONCEPTS.md)** - Understanding the ECS fundamentals
+*   **[Core Concepts](CORE_CONCEPTS-zh-CN-dual.md)** - Understanding the ECS fundamentals
     核心概念 - 理解 ECS 基础
-*   **[Systems](CORE_CONCEPTS.md#systems)** - Regular processing systems
+*   **[Systems](CORE_CONCEPTS-zh-CN-dual.md#systems)** - Regular processing systems
     系统组件 - 常规处理系统
-*   **[Best Practices](BEST_PRACTICES.md)** - Write maintainable ECS code
+*   **[Best Practices](BEST_PRACTICES-zh-CN-dual.md)** - Write maintainable ECS code
     最佳实践 - 编写可维护的 ECS 代码
 
 * * *
