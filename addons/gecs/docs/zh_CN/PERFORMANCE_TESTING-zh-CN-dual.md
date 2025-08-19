@@ -7,7 +7,7 @@ GECS 性能测试指南
 This document explains how to run and interpret the GECS performance tests. This is primarily for framework developers and contributors who need to ensure GECS maintains high performance.
 本文档解释了如何运行和解读 GECS 性能测试。这主要面向需要确保 GECS 保持高性能的框架开发者和贡献者。
 
-**For game developers:** See [Performance Optimization Guide](PERFORMANCE_OPTIMIZATION.md) for optimizing your games.
+**For game developers:** See [Performance Optimization Guide](PERFORMANCE_OPTIMIZATION-zh-CN-dual.md) for optimizing your games.
 游戏开发者：请参阅性能优化指南以优化您的游戏。
 
 ## 📋 Prerequisites
@@ -307,11 +307,11 @@ func test_my_custom_operation():
 ## 📚 Related Documentation
 📚 相关文档
 
-*   **[Performance Optimization](PERFORMANCE_OPTIMIZATION.md)** - User-focused optimization guide
+*   **[Performance Optimization](PERFORMANCE_OPTIMIZATION-zh-CN-dual.md)** - User-focused optimization guide
     性能优化 - 以用户为中心的优化指南
-*   **[Best Practices](BEST_PRACTICES.md)** - Write performant ECS code
+*   **[Best Practices](BEST_PRACTICES-zh-CN-dual.md)** - Write performant ECS code
     最佳实践 - 编写高效的 ECS 代码
-*   **[Core Concepts](CORE_CONCEPTS.md)** - Understanding the ECS architecture
+*   **[Core Concepts](CORE_CONCEPTS-zh-CN-dual.md)** - Understanding the ECS architecture
     核心概念 - 理解 ECS 架构
 
 * * *
