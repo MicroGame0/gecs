@@ -498,7 +498,7 @@ func _on_inspect_button_pressed():
     Discord: 加入我们的社区以获得帮助和参与讨论
 *   **GitHub Issues**: [Report bugs](https://github.com/csprance/gecs/issues)
     GitHub Issues: 报告错误
-*   **Documentation**: [Complete Guide](../DOCUMENTATION.md)
+*   **Documentation**: [Complete Guide](../DOCUMENTATION-zh-CN-dual.md)
     文档: 完整指南
 
 ### Before Asking for Help
@@ -524,9 +524,9 @@ Include this information in your question:
 If this guide doesn't solve your problem:
 如果本指南无法解决您的问题：
 
-1.  **Check the examples** in [Getting Started](GETTING_STARTED.md)
+1.  **Check the examples** in [Getting Started](GETTING_STARTED-zh-CN-dual.md)
     检查入门指南中的示例
-2.  **Review best practices** in [Best Practices](BEST_PRACTICES.md)
+2.  **Review best practices** in [Best Practices](BEST_PRACTICES-zh-CN-dual.md)
     在最佳实践中查看最佳实践
 3.  **Search GitHub issues** for similar problems
     在 GitHub 问题中搜索类似问题
