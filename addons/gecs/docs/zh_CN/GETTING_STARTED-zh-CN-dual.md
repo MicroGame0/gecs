@@ -7,6 +7,7 @@
 This guide will walk you through creating a simple player entity with health and transform components using GECS. By the end, you'll understand the core concepts and have a working example.
 本指南将带你使用 GECS 创建一个带有健康和变换组件的简单玩家实体。完成后，你将了解核心概念并拥有一个可运行的示例。
 
+
 ## 📋 Prerequisites
 📋 先决条件
 
