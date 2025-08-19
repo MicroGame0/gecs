@@ -10,9 +10,9 @@ Relationships allow you to connect entities in meaningful ways, creating dynamic
 ## 📋 Prerequisites
 📋 前置条件
 
-*   Understanding of [Core Concepts](CORE_CONCEPTS.md)
+*   Understanding of [Core Concepts](CORE_CONCEPTS-zh-CN-dual.md)
     对核心概念的理解
-*   Familiarity with [Query System](CORE_CONCEPTS.md#query-system)
+*   Familiarity with [Query System](CORE_CONCEPTS-zh-CN-dual.md#query-system)
     熟悉查询系统
 
 ## 🔗 What are Relationships?
@@ -313,19 +313,19 @@ Now that you understand relationships:
     结合关系与组件查询实现强大过滤
 4.  **Optimize with static relationship factories** for better performance
     使用静态关系工厂优化性能
-5.  **Learn advanced patterns** in [Best Practices Guide](BEST_PRACTICES.md)
+5.  **Learn advanced patterns** in [Best Practices Guide](BEST_PRACTICES-zh-CN-dual.md)
     在最佳实践指南中学习高级模式
 
 ## 📚 Related Documentation
 📚 相关文档
 
-*   **[Core Concepts](CORE_CONCEPTS.md)** - Understanding the ECS fundamentals
+*   **[Core Concepts](CORE_CONCEPTS-zh-CN-dual.md)** - Understanding the ECS fundamentals
     核心概念 - 理解 ECS 基础
-*   **[Component Queries](COMPONENT_QUERIES.md)** - Advanced property-based filtering
+*   **[Component Queries](COMPONENT_QUERIES-zh-CN-dual.md)** - Advanced property-based filtering
     组件查询 - 高级属性过滤
-*   **[Best Practices](BEST_PRACTICES.md)** - Write maintainable ECS code
+*   **[Best Practices](BEST_PRACTICES-zh-CN-dual.md)** - Write maintainable ECS code
     最佳实践 - 编写可维护的 ECS 代码
-*   **[Performance Optimization](PERFORMANCE_OPTIMIZATION.md)** - Optimize relationship queries
+*   **[Performance Optimization](PERFORMANCE_OPTIMIZATION-zh-CN-dual.md)** - Optimize relationship queries
     性能优化 - 优化关系查询
 
 * * *
