@@ -10,9 +10,9 @@ This guide shows you how to optimize your GECS-based games for maximum performan
 ## 📋 Prerequisites
 📋 前置条件
 
-*   Understanding of [Core Concepts](CORE_CONCEPTS.md)
+*   Understanding of [Core Concepts](CORE_CONCEPTS-zh-CN-dual.md)
     对核心概念的理解
-*   Familiarity with [Best Practices](BEST_PRACTICES.md)
+*   Familiarity with [Best Practices](BEST_PRACTICES-zh-CN-dual.md)
     熟悉最佳实践
 *   A working GECS project to optimize
     一个用于优化的 GECS 项目
@@ -439,7 +439,7 @@ var stats = ECS.world.get_cache_stats()
 print("Cache hit rate: ", stats.get("hits", 0) / (stats.get("hits", 0) + stats.get("misses", 1)))
 ```
 
-**Need more help?** Check the [Troubleshooting Guide](TROUBLESHOOTING.md) for specific performance issues.
+**Need more help?** Check the [Troubleshooting Guide](TROUBLESHOOTING-zh-CN-dual.md) for specific performance issues.
 需要更多帮助？请查看故障排除指南以解决特定的性能问题。
 
 * * *
