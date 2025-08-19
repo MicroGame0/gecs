@@ -10,9 +10,9 @@ Component Queries provide a powerful way to filter entities not just based on th
 ## 📋 Prerequisites
 📋 先决条件
 
-*   Understanding of [Core Concepts](CORE_CONCEPTS.md)
+*   Understanding of [Core Concepts](CORE_CONCEPTS-zh-CN-dual.md)
     理解核心概念
-*   Familiarity with [Basic Queries](CORE_CONCEPTS.md#query-system)
+*   Familiarity with [Basic Queries](CORE_CONCEPTS-zh-CN-dual.md#query-system)
     熟悉基本查询
 
 ## 🎯 Introduction
