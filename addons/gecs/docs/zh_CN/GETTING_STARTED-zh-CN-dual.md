@@ -1,8 +1,8 @@
 # Getting Started with GECS
 使用 GECS 入门
 
-> **Build your first ECS project in 5 minutes
-> 5 分钟内构建你的第一个 ECS 项目**
+> **Build your first ECS project in 5 minutes**
+> **5 分钟内构建你的第一个 ECS 项目**
 
 This guide will walk you through creating a simple player entity with health and transform components using GECS. By the end, you'll understand the core concepts and have a working example.
 本指南将带你使用 GECS 创建一个带有健康和变换组件的简单玩家实体。完成后，你将了解核心概念并拥有一个可运行的示例。
