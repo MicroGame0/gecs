@@ -10,9 +10,9 @@ This guide covers proven patterns and practices for building robust games with G
 ## 📋 Prerequisites
 📋 先决条件
 
-*   Completed [Getting Started Guide](GETTING_STARTED.md)
+*   Completed [Getting Started Guide](GETTING_STARTED-zh-CN-dual.md)
     完成入门指南
-*   Understanding of [Core Concepts](CORE_CONCEPTS.md)
+*   Understanding of [Core Concepts](CORE_CONCEPTS-zh-CN-dual.md)
     理解核心概念
 
 ## 🧱 Component Design Patterns
@@ -632,9 +632,9 @@ Now that you understand best practices:
 
 1.  **Apply these patterns** in your projects
     将这些模式应用到你的项目中
-2.  **Learn advanced topics** in [Core Concepts](CORE_CONCEPTS.md)
+2.  **Learn advanced topics** in [Core Concepts](CORE_CONCEPTS-zh-CN-dual.md)
     学习核心概念中的高级主题
-3.  **Optimize performance** with [Performance Guide](PERFORMANCE_OPTIMIZATION.md)
+3.  **Optimize performance** with [Performance Guide](PERFORMANCE_OPTIMIZATION-zh-CN-dual.md)
     使用性能指南优化性能
 
 **Need help?** [Join our Discord](https://discord.gg/eB43XU2tmn) for community discussions and support.
