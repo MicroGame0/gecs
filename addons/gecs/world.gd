@@ -205,6 +205,7 @@ func add_entity(entity: Entity, components = null, add_to_tree = true) -> void:
 	for processor in ECS.entity_preprocessors:
 		processor.call(entity)
 
+
 	# Clear our query cache when component structure changes
 	_query_result_cache.clear()
 	cache_invalidated.emit()
@@ -243,8 +244,11 @@ func remove_entity(entity) -> void:
 	entity.component_removed.disconnect(_on_entity_component_removed)
 	entity.relationship_added.disconnect(_on_entity_relationship_added)
 	entity.relationship_removed.disconnect(_on_entity_relationship_removed)
+	
+	# Destroy entity normally
 	entity.on_destroy()
 	entity.queue_free()
+	
 	# Clear our query cache when component structure changes
 	_query_result_cache.clear()
 	cache_invalidated.emit()
@@ -257,7 +261,7 @@ func remove_entity(entity) -> void:
 ##      [codeblock]world.disable_entity(player_entity)[/codeblock]
 func disable_entity(entity) -> Entity:
 	entity = entity as Entity
-	entity.enabled = false
+	entity.enabled = false # This will trigger _on_entity_enabled_changed via setter
 	entity_disabled.emit(entity)
 	_worldLogger.debug("disable_entity Disabling Entity: ", entity)
 	entity.component_added.disconnect(_on_entity_component_added)
@@ -288,7 +292,7 @@ func disable_entity(entity) -> Entity:
 func enable_entity(entity: Entity, components = null) -> void:
 	# Update index
 	_worldLogger.debug("enable_entity Enabling Entity to World: ", entity)
-	entity.enabled = true
+	entity.enabled = true # This will trigger _on_entity_enabled_changed via setter
 	entity_enabled.emit(entity)
 
 	# Connect to entity signals for components so we can track global component state
@@ -312,6 +316,13 @@ func enable_entity(entity: Entity, components = null) -> void:
 	cache_invalidated.emit()
 	if ECS.debug:
 		GECSEditorDebuggerMessages.entity_enabled(entity)
+
+
+
+
+## ##################################
+## Systems
+## ##################################
 
 
 ## Adds a single system to the world.
@@ -527,8 +538,7 @@ func _remove_entity_from_index(entity, component_key: String) -> void:
 ## @param component_key The resource path of the added component.
 func _on_entity_component_added(entity: Entity, component: Resource) -> void:
 	# We have to get the script here then resource because we're using an instantiated resource
-	if component and component.get_script():
-		_add_entity_to_index(entity, component.get_script().resource_path)
+	_add_entity_to_index(entity, component.get_script().resource_path)
 	# Emit Signal
 	component_added.emit(entity, component)
 
@@ -537,6 +547,9 @@ func _on_entity_component_added(entity: Entity, component: Resource) -> void:
 
 	# Watch for propety changes to the component
 	if not entity.component_property_changed.is_connected(_on_entity_component_property_change):
+		# Connect to the component's property changed signal
+		# This allows us to track changes to properties on the component
+		# and notify observers
 		entity.component_property_changed.connect(_on_entity_component_property_change)
 
 	if ECS.debug:
