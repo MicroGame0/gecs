@@ -1,13 +1,21 @@
 class_name RandomSpawnerSystem
 extends System
 
-@export var batch_interval: float = 0.01 # Time between batches
 @export var random_mover_scene: PackedScene
 
-var timer = 0.1
+func _init():
+	# Use PER_GROUP flush mode - spawns will be visible to other systems next frame
+	command_buffer_flush_mode = "PER_GROUP"
 
-func process_all(_es: Array, delta: float):
-	timer -= delta
-	if timer <= 0.0:
-		timer = batch_interval
-		ECS.world.add_entity(random_mover_scene.instantiate() as Entity)
+
+func process(_es: Array, _cs: Array, _d: float):
+	# Use CommandBuffer instead of call_deferred
+	var entitya = random_mover_scene.instantiate() as Entity
+	entitya.color = Color(randf(), randf(), randf())
+
+	# Queue entity addition - will be executed at end of process group
+	cmd.add_entity(entitya)
+
+	# Queue relationship addition
+	if ECS.world.entities.size() % 3 == 0:
+		cmd.add_relationship(entitya, Relationship.new(C_IsSpecial.new()))

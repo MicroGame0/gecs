@@ -138,16 +138,49 @@ class_name HealthRegenerationSystem extends System
 func query():
     return q.with_all([C_Health]).with_none([C_Dead])
 
-func process(entity: Entity, delta: float):
-    var health = entity.get_component(C_Health)
+func process(entities: Array[Entity], components: Array, delta: float):
+    for entity in entities:
+        var health = entity.get_component(C_Health)
 
-    # Early exit if already at max health
-    if health.current >= health.maximum:
-        return
+        # Early exit if already at max health
+        if health.current >= health.maximum:
+            continue
 
-    # Apply regeneration
-    health.current = min(health.current + health.regeneration_rate * delta, health.maximum)
+        # Apply regeneration
+        health.current = min(health.current + health.regeneration_rate * delta, health.maximum)
 ```
+
+### Use CommandBuffer for Structural Changes During Iteration
+
+When adding/removing components, entities, or relationships during system processing, use the `cmd` CommandBuffer instead of direct world/entity calls. This allows safe forward iteration and deferred cache invalidation.
+
+```gdscript
+# ✅ Good - Use CommandBuffer for safe iteration
+class_name LifetimeSystem extends System
+
+func query():
+    return q.with_all([C_Lifetime])
+
+func process(entities: Array[Entity], components: Array, delta: float):
+    for entity in entities:
+        var lifetime = entity.get_component(C_Lifetime)
+        lifetime.time -= delta
+        if lifetime.time <= 0:
+            cmd.remove_entity(entity)  # Queued, executed after system completes
+```
+
+```gdscript
+# ❌ Avoid - Direct removal during iteration requires backwards iteration
+func process(entities: Array[Entity], components: Array, delta: float):
+    for i in range(entities.size() - 1, -1, -1):
+        if should_delete(entities[i]):
+            ECS.world.remove_entity(entities[i])  # Modifies array during iteration
+```
+
+**Flush Modes** control when queued commands execute:
+- **PER_SYSTEM** (default) — executes after each system completes
+- **PER_GROUP** — executes after all systems in the group complete
+- **MANUAL** — requires explicit `ECS.world.flush_command_buffers()` call
 
 ## 🏗️ Code Organization Patterns
 
@@ -239,19 +272,47 @@ func on_ready():
 
 ## 🚀 Performance Best Practices
 
-### Use Batch Processing for Performance
+### Choose the Right Query Method ⭐ NEW!
+
+**Query Performance Ranking** (v5.0.0-rc4+):
 
 ```gdscript
-# ✅ Good - Batch processing with process_all
+# 🏆 FASTEST - Enabled/disabled queries (constant time)
+class_name ActiveEntitiesOnly extends System
+func query():
+    return q.enabled(true)  # ~0.05ms for any number of entities
+
+# 🥈 EXCELLENT - Component queries (heavily optimized)
+class_name MovementSystem extends System
+func query():
+    return q.with_all([C_Position, C_Velocity])  # ~0.6ms for 10K entities
+
+# 🥉 GOOD - Use with_any strategically
+class_name DamageableSystem extends System
+func query():
+    return q.with_any([C_Player, C_Enemy]).with_all([C_Health])  # ~5.6ms for 10K
+
+# 🐌 AVOID - Group queries are slowest
+class_name PlayerSystem extends System
+func query():
+    return q.with_group("player")  # ~16ms for 10K entities
+    # Better: q.with_all([C_Player])
+```
+
+### Use iterate() for Batch Performance
+
+```gdscript
+# ✅ Good - Batch processing with iterate()
 class_name TransformSystem
 extends System
 
 func query():
-    return q.with_all([C_Transform])
+    # Use iterate() to get component arrays
+    return q.with_all([C_Transform]).iterate([C_Transform])
 
-func process_all(entities: Array, _delta):
+func process(entities: Array[Entity], components: Array, delta: float):
     # Batch access to components for better performance
-    var transforms = ECS.get_components(entities, C_Transform)
+    var transforms = components[0]  # C_Transform array from iterate()
     for i in range(entities.size()):
         entities[i].global_transform = transforms[i].transform
 ```
@@ -259,12 +320,23 @@ func process_all(entities: Array, _delta):
 ### Use Specific Queries
 
 ```gdscript
-# ✅ Good - Specific query
-class_name PlayerInputSystem extends System
+# ✅ BEST - Combine enabled filter with components
+class_name ActivePlayerInputSystem extends System
 func query():
-    return q.with_all([C_Input, C_Movement]).with_group("player")
+    return q.with_all([C_Input, C_Movement]).enabled(true)
+    # Super fast: enabled filtering + component matching
 
-# ❌ Avoid - Overly broad queries
+# ✅ GOOD - Specific component query
+class_name ProjectileSystem extends System
+func query():
+    return q.with_all([C_Projectile, C_Velocity])  # Fast and specific
+
+# ❌ AVOID - Group-based queries (slow)
+class_name PlayerSystem extends System
+func query():
+    return q.with_group("player")  # Use q.with_all([C_Player]) instead
+
+# ❌ AVOID - Overly broad queries
 class_name UniversalMovementSystem extends System
 func query():
     return q.with_all([C_Transform])  # Too broad - matches everything
@@ -392,16 +464,17 @@ extends System
 func query():
     return q.with_all([C_SpawnPoint])
 
-func process(entity: Entity, delta: float):
-    var spawn_point = entity.get_component(C_SpawnPoint)
+func process(entities: Array[Entity], components: Array, delta: float):
+    for entity in entities:
+        var spawn_point = entity.get_component(C_SpawnPoint)
 
-    if spawn_point.should_spawn():
-        var spawned = spawn_point.prefab.instantiate() as Entity
-        spawned.global_position = entity.global_position
-        get_tree().current_scene.add_child(spawned)
-        ECS.world.add_entity(spawned)
+        if spawn_point.should_spawn():
+            var spawned = spawn_point.prefab.instantiate() as Entity
+            spawned.global_position = entity.global_position
+            get_tree().current_scene.add_child(spawned)
+            ECS.world.add_entity(spawned)
 
-        spawn_point.mark_spawned()
+            spawn_point.mark_spawned()
 ```
 
 **Prefab Management Best Practices:**
@@ -550,6 +623,122 @@ static func damage_entity(entity: Entity, amount: float):
         health.current = max(0, health.current - amount)
         return health.current <= 0  # Return true if entity died
     return false
+```
+
+## 🎛️ Relationship Management Best Practices
+
+### Limited Removal Patterns
+
+**Use Descriptive Constants:**
+
+```gdscript
+# ✅ Good - Clear intent with constants
+const WEAK_CLEANSE = 1
+const MEDIUM_CLEANSE = 3
+const STRONG_CLEANSE = -1  # All
+
+# ✅ Good - Stack-based constants
+const SINGLE_STACK = 1
+const PARTIAL_STACKS = 3
+const ALL_STACKS = -1
+
+func cleanse_debuffs(entity: Entity, power: int):
+    match power:
+        1: entity.remove_relationship(Relations.any_debuff(), WEAK_CLEANSE)
+        2: entity.remove_relationship(Relations.any_debuff(), MEDIUM_CLEANSE)
+        3: entity.remove_relationship(Relations.any_debuff(), STRONG_CLEANSE)
+```
+
+**Validate Before Removal:**
+
+```gdscript
+# ✅ Excellent - Safe removal with validation
+func safe_partial_heal(entity: Entity, heal_amount: int):
+    var damage_rels = entity.get_relationships(Relations.any_damage())
+    if damage_rels.is_empty():
+        print("Entity has no damage to heal")
+        return
+
+    var to_heal = min(heal_amount, damage_rels.size())
+    entity.remove_relationship(Relations.any_damage(), to_heal)
+    print("Healed ", to_heal, " damage effects")
+
+# ✅ Good - Helper function with built-in safety
+func remove_poison_stacks(entity: Entity, stacks_to_remove: int):
+    if stacks_to_remove <= 0:
+        return
+    entity.remove_relationship(Relations.poison_effect(), stacks_to_remove)
+```
+
+**System Integration Patterns:**
+
+```gdscript
+# ✅ Excellent - Integration with game systems
+class_name StatusEffectSystem extends System
+
+func process(entities: Array[Entity], components: Array, delta: float):
+    # Example: process spell casting entities
+    for entity in entities:
+        var spell = entity.get_component(C_SpellCaster)
+        if spell.is_casting_cleanse():
+            process_cleanse_spell(entity, spell.target, spell.power)
+
+func process_cleanse_spell(caster: Entity, target: Entity, spell_power: int):
+    # Calculate cleanse strength based on spell power and caster stats
+    var cleanse_strength = calculate_cleanse_strength(caster, spell_power)
+
+    # Apply graduated cleansing based on strength
+    match cleanse_strength:
+        1..3:   target.remove_relationship(Relations.any_debuff(), 1)
+        4..6:   target.remove_relationship(Relations.any_debuff(), 2)
+        7..9:   target.remove_relationship(Relations.any_debuff(), 3)
+        _:      target.remove_relationship(Relations.any_debuff())  # Remove all
+
+func process_antidote_item(user: Entity, antidote_strength: int):
+    # Remove poison based on antidote quality
+    user.remove_relationship(Relations.poison_effect(), antidote_strength)
+
+    # Remove poison resistance temporarily to prevent immediate repoison
+    user.add_relationship(Relations.poison_immunity(), 5.0)  # 5 second immunity
+
+class_name InventorySystem extends System
+
+func consume_item_stack(entity: Entity, item_type: Script, count: int):
+    # Consume specific number of items from inventory
+    entity.remove_relationship(
+        Relationship.new(C_HasItem.new(), item_type),
+        count
+    )
+
+func use_consumable(entity: Entity, item: Component, quantity: int = 1):
+    # Use consumable items with quantity
+    entity.remove_relationship(
+        Relationship.new(C_HasItem.new(), item),
+        quantity
+    )
+```
+
+**Performance Optimization:**
+
+```gdscript
+# ✅ Good - Cache relationships for multiple operations
+func optimize_bulk_removal(entity: Entity):
+    # Cache the relationship for reuse
+    var poison_rel = Relations.poison_effect()
+    var damage_rel = Relations.any_damage()
+
+    # Multiple targeted removals
+    entity.remove_relationship(poison_rel, 2)      # Remove 2 poison
+    entity.remove_relationship(damage_rel, 1)      # Remove 1 damage
+    entity.remove_relationship(poison_rel, 1)      # Remove 1 more poison
+
+# ✅ Excellent - Batch removal patterns
+func batch_cleanup(entities: Array[Entity]):
+    var cleanup_rel = Relations.temporary_effect()
+
+    for entity in entities:
+        # Remove up to 3 temporary effects from each entity
+        entity.remove_relationship(cleanup_rel, 3)
 ```
 
 ## 🎯 Next Steps

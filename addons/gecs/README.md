@@ -24,9 +24,19 @@
 - **[Best Practices](docs/BEST_PRACTICES.md)** - Write maintainable, performant ECS code
 - **[Relationships](docs/RELATIONSHIPS.md)** - Link entities together for complex interactions
 - **[Observers](docs/OBSERVERS.md)** - Reactive systems that respond to component changes
+- **[Serialization](docs/SERIALIZATION.md)** - Save and load game state and entities
+
+### 🔄 Deferred Execution (NEW in v6.8.0)
+
+- **CommandBuffer** - Queue structural changes during iteration with `cmd`. Eliminates backwards iteration and defensive snapshots. Three flush modes: PER_SYSTEM, PER_GROUP, MANUAL.
+
+### 🌐 Networking (Optional addon)
+
+- **[GECS Network Addon](../gecs_network/README.md)** - Multiplayer synchronization for GECS entities. Supports **transport providers** (ENet, Steam, or custom backends) that can be swapped without changing game code. See the addon docs for [Configuration & NetAdapter](../gecs_network/docs/configuration.md), [Examples](../gecs_network/docs/examples.md), and [Troubleshooting](../gecs_network/docs/troubleshooting.md).
 
 ### ⚡ Optimization & Advanced (As needed)
 
+- **[Debug Viewer](docs/DEBUG_VIEWER.md)** - Real-time debugging and performance monitoring
 - **[Performance Optimization](docs/PERFORMANCE_OPTIMIZATION.md)** - Make your games run fast and smooth
 - **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Solve common issues quickly
 
@@ -51,14 +61,25 @@
 | **Entity Linking**     | [Relationships](docs/RELATIONSHIPS.md)         | Connect entities with relationships |
 | **Property Filtering** | [Component Queries](docs/COMPONENT_QUERIES.md) | Query entities by component data    |
 | **Event Systems**      | [Observers](docs/OBSERVERS.md)                 | React to component changes          |
+| **Data Persistence**   | [Serialization](docs/SERIALIZATION.md)         | Save/load entities and game state   |
+
+### Networking (Optional addon)
+
+| Topic                  | Document                                                                  | Description                                          |
+| ---------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------- |
+| **Overview**           | [GECS Network Addon](../gecs_network/README.md)                          | Multiplayer sync, transport providers (ENet/Steam)   |
+| **Configuration**      | [Configuration & NetAdapter](../gecs_network/docs/configuration.md)      | SyncConfig, priorities, transport provider setup      |
+| **Examples**           | [Examples](../gecs_network/docs/examples.md)                             | Players, enemies, projectiles, abilities              |
+| **Troubleshooting**    | [Troubleshooting](../gecs_network/docs/troubleshooting.md)               | Common networking issues and migration guide          |
 
 ### Optimization & Debugging
 
-| Topic           | Document                                                     | Description                   |
-| --------------- | ------------------------------------------------------------ | ----------------------------- |
-| **Performance** | [Performance Optimization](docs/PERFORMANCE_OPTIMIZATION.md) | Game performance optimization |
-| **Debugging**   | [Troubleshooting](docs/TROUBLESHOOTING.md)                   | Common problems and solutions |
-| **Testing**     | [Performance Testing](docs/PERFORMANCE_TESTING.md)           | Framework performance testing |
+| Topic              | Document                                                     | Description                         |
+| ------------------ | ------------------------------------------------------------ | ----------------------------------- |
+| **Debug Viewer**   | [Debug Viewer](docs/DEBUG_VIEWER.md)                         | Real-time debugging and inspection  |
+| **Performance**    | [Performance Optimization](docs/PERFORMANCE_OPTIMIZATION.md) | Game performance optimization       |
+| **Debugging**      | [Troubleshooting](docs/TROUBLESHOOTING.md)                   | Common problems and solutions       |
+| **Testing**        | [Performance Testing](docs/PERFORMANCE_TESTING.md)           | Framework performance testing       |
 
 ## 🎯 Quick References
 
@@ -80,8 +101,8 @@ ECS.world.add_entity(player)
 
 # System queries
 func query(): return q.with_all([C_Health, C_Position])
-func process(entity: Entity, delta: float): # Process single entity
-func process_all(entities: Array, delta: float): # Batch processing
+func process(entities: Array[Entity], components: Array, delta: float): # Unified signature
+# Use .iterate([Components]) for batch component array access
 
 # Relationships
 entity.add_relationship(Relationship.new(C_Likes.new(), target_entity))
@@ -89,6 +110,17 @@ var likers = ECS.world.query.with_relationship([Relationship.new(C_Likes.new(), 
 
 # Component queries
 var low_health = ECS.world.query.with_all([{C_Health: {"current": {"_lt": 20}}}]).execute()
+
+# Order Independence: with_all/with_any/with_node component order does not affect matching or caching.
+# The framework normalizes component sets internally so these yield identical results:
+# ECS.world.query.with_all([C_Health, C_Position])
+# ECS.world.query.with_all([C_Position, C_Health])
+# Cache keys and archetype matching are order-insensitive.
+
+# Serialization
+var data = ECS.serialize(ECS.world.query.with_all([C_Persistent]))
+ECS.save(data, "user://savegame.tres", true)  # Binary format
+var entities = ECS.deserialize("user://savegame.tres")
 ```
 
 ## 🎮 Example Projects

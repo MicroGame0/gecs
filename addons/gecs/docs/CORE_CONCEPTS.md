@@ -81,9 +81,10 @@ extends Entity
 
 func on_ready():
     # Sync transform from scene to component
-    if has_component(C_Transform):
-        var transform_comp = get_component(C_Transform)
-        transform_comp.transform = global_transform
+    var c_trs = get_component(C_Transform) as C_Transform
+    if not c_trs:
+        return
+    transform_comp.transform = self.global_transform # This works because the TSCN base type is Node3D and we extend Node3D with Entity (Which itself extends from Node)
 ```
 
 ### Entity Lifecycle
@@ -93,9 +94,10 @@ Entities have a managed lifecycle:
 1. **Initialization** - Entity added to world, components loaded from `component_resources`
 2. **define_components()** - Called to add components via code
 3. **on_ready()** - Setup initial states, sync transforms
-4. **on_update(delta)** - Called by systems each frame
-5. **on_destroy()** - Cleanup before removal
-6. **on_disable()/on_enable()** - Handle enable/disable states
+4. **on_destroy()** - Cleanup before removal
+5. **on_disable()/on_enable()** - Handle enable/disable states
+
+> **Note:** In GECS v5.0+, entity logic should be handled by Systems, not in entity methods. Entities are pure data containers.
 
 ### Entity Naming Conventions
 
@@ -133,14 +135,14 @@ extends Entity
 
 func on_ready():
     # Connect scene nodes to components
-    var sprite_comp = get_component(C_Sprite)
-    if sprite_comp:
+    var c_sprite = get_component(C_Sprite)
+    if c_sprite:
         sprite_comp.mesh_instance = mesh_instance
 
     # Sync editor-placed transform to component
-    if has_component(C_Transform):
-        var transform_comp = get_component(C_Transform)
-        transform_comp.transform = global_transform
+    var c_trs = get_component(C_Transform)
+    if c_trs:
+        transform_comp.transform = self.global_transform
 ```
 
 ## 📦 Components
@@ -280,7 +282,7 @@ Systems have two main parts:
 
 ### System Types
 
-**Single Entity Processing:**
+**Entity Processing:**
 
 ```gdscript
 class_name LifetimeSystem
@@ -289,32 +291,39 @@ extends System
 func query() -> QueryBuilder:
     return q.with_all([C_Lifetime])
 
-func process(entity: Entity, delta: float):
-    var c_lifetime = entity.get_component(C_Lifetime) as C_Lifetime
-    c_lifetime.lifetime -= delta
+func process(entities: Array[Entity], components: Array, delta: float):
+    for entity in entities:
+        var c_lifetime = entity.get_component(C_Lifetime) as C_Lifetime
+        c_lifetime.lifetime -= delta
 
-    if c_lifetime.lifetime <= 0:
-        ECS.world.remove_entity(entity)
+        if c_lifetime.lifetime <= 0:
+            cmd.remove_entity(entity)  # Queued via CommandBuffer, safe during iteration
 ```
 
-**Batch Processing (More Efficient):**
+**Optimized Batch Processing with iterate():**
 
 ```gdscript
-class_name TransformSystem
+class_name VelocitySystem
 extends System
 
 func query() -> QueryBuilder:
-    return q.with_all([C_Transform])
+    # Use iterate() to get component arrays for faster access
+    return q.with_all([C_Velocity]).iterate([C_Velocity])
 
-func process_all(entities: Array, _delta):
-    var transforms = ECS.get_components(entities, C_Transform)
-    for i in range(entities.size()):
-        entities[i].global_transform = transforms[i].transform
+func process(entities: Array[Entity], components: Array, delta: float):
+    # components[0] contains all C_Velocity components
+    var velocities = components[0]
+
+    for i in entities.size():
+        # Direct array access is faster than get_component()
+        var position: Vector3 = entities[i].transform.origin
+        position += velocities[i].velocity * delta
+        entities[i].transform.origin = position
 ```
 
 ### Sub-Systems
 
-Group related logic into one system file:
+Group related logic into one system file - all subsystems use the unified signature:
 
 ```gdscript
 class_name DamageSystem
@@ -322,25 +331,37 @@ extends System
 
 func sub_systems():
     return [
-        # [query, callable, process_all_flag]
-        [ECS.world.query.with_all([C_Health, C_Damage]), damage_entities, false],
-        [ECS.world.query.with_all([C_Health]).with_none([C_Dead]), regenerate_health, true]
+        # [query, callable] - all use same unified process signature
+        [
+            q
+            .with_all([C_Health, C_Damage]),
+            damage_entities
+        ],
+        [
+            q
+            .with_all([C_Health])
+            .with_none([C_Dead])
+            .iterate([C_Health]),
+            regenerate_health
+        ]
     ]
 
-func damage_entities(entity: Entity, delta: float):
-    var health = entity.get_component(C_Health)
-    var damage = entity.get_component(C_Damage)
-    health.current -= damage.amount
-    entity.remove_component(damage)
-    
-    if health.current <= 0:
-        entity.add_component(C_Dead.new())
+func damage_entities(entities: Array[Entity], components: Array, delta: float):
+    # Process entities with damage
+    for entity in entities:
+        var c_health = entity.get_component(C_Health)
+        var c_damage = entity.get_component(C_Damage)
+        c_health.current -= c_damage.amount
+        entity.remove_component(c_damage)
 
-func regenerate_health(entities: Array, delta: float):
-    # Batch process health regeneration
-    var healths = ECS.get_components(entities, C_Health)
-    for health in healths:
-        health.current = min(health.current + 1 * delta, health.maximum)
+        if c_health.current <= 0:
+            entity.add_component(C_Dead.new())
+
+func regenerate_health(entities: Array[Entity], components: Array, delta: float):
+    # Batch process using component arrays from iterate()
+    var healths = components[0]
+    for i in entities.size():
+        healths[i].current = min(healths[i].current + 1 * delta, healths[i].maximum)
 ```
 
 ### System Dependencies
@@ -376,8 +397,8 @@ func deps() -> Dictionary[int, Array]:
 
 Systems follow Godot node lifecycle:
 
-- `on_ready()` - Initial setup after components loaded
-- `process(delta)` or `process_all(entities, delta)` - Called each frame for matching entities
+- `setup()` - Initial setup after system is added to world
+- `process(entities, components, delta)` - Unified method called each frame for matching entities
 - System groups for organized processing order
 
 ## 🔍 Query System
@@ -394,6 +415,7 @@ ECS.world.query
     .with_relationship([r_attacking_player])    # Must have these relationships
     .without_relationship([r_fleeing])          # Must not have these relationships
     .with_reverse_relationship([r_parent_of])   # Must be target of these relationships
+    .iterate([C_Health])                        # Fetch these components and add to components array for quick iteration
 ```
 
 ### Query Methods

@@ -3,12 +3,7 @@ extends GdUnitTestSuite
 var runner: GdUnitSceneRunner
 var world: World
 
-const C_TestA = preload("res://addons/gecs/tests/components/c_test_a.gd")
-const C_TestB = preload("res://addons/gecs/tests/components/c_test_b.gd")
-const C_TestC = preload("res://addons/gecs/tests/components/c_test_c.gd")
-const TestA = preload("res://addons/gecs/tests/entities/e_test_a.gd")
-const TestB = preload("res://addons/gecs/tests/entities/e_test_b.gd")
-const TestC = preload("res://addons/gecs/tests/entities/e_test_c.gd")
+
 
 
 func before():
@@ -35,6 +30,12 @@ func test_add_and_get_component():
 	var retrieved_component = entity.get_component(C_TestA)
 	assert_str(type_string(typeof(retrieved_component))).is_equal(type_string(typeof(comp)))
 
+# Components need default values on init or they will error
+# FIXME: How can we catch this in the code?
+func test_add_entity_with_component_with_no_defaults_in_init():
+	var entity = auto_free(Entity.new())
+	# this line will lead to crash (the _init parameters has no default value)
+	assert_error(func(): entity.add_component(C_TestH.new(57)))
 
 func test_add_multiple_components_and_has():
 	var entity = auto_free(TestB.new())
@@ -83,3 +84,81 @@ func test_add_get_has_relationship():
 	assert_str(type_string(typeof(class_retrieved_relationship))).is_equal(
 		type_string(typeof(Relationship.new(C_TestA.new(), entitya)))
 	)
+
+func test_add_and_remove_component():
+	var entity = auto_free(TestB.new())
+	for i in range(99):
+		var comp = C_TestB.new()
+		entity.add_component(comp)
+		entity.remove_component(C_TestB)
+		print('_component_path_cache size=', entity._component_path_cache.size())
+
+	# Test memory leak
+	assert_int(entity._component_path_cache.size()).is_equal(0)
+
+
+func test_remove_components_with_scripts():
+	var entity = auto_free(TestB.new())
+	var comp1 = C_TestA.new()
+	var comp2 = C_TestB.new()
+	var comp3 = C_TestC.new()
+
+	# Add multiple components
+	entity.add_components([comp1, comp2, comp3])
+
+	# Verify all were added
+	assert_bool(entity.has_component(C_TestA)).is_true()
+	assert_bool(entity.has_component(C_TestB)).is_true()
+	assert_bool(entity.has_component(C_TestC)).is_true()
+
+	# Remove multiple components by Script class
+	entity.remove_components([C_TestA, C_TestB])
+
+	# Test that the components were removed
+	assert_bool(entity.has_component(C_TestA)).is_false()
+	assert_bool(entity.has_component(C_TestB)).is_false()
+	# Test that C_TestC is still there
+	assert_bool(entity.has_component(C_TestC)).is_true()
+
+
+func test_remove_components_with_instances():
+	var entity = auto_free(TestB.new())
+	var comp1 = C_TestA.new()
+	var comp2 = C_TestB.new()
+	var comp3 = C_TestC.new()
+
+	# Add multiple components
+	entity.add_components([comp1, comp2, comp3])
+
+	# Verify all were added
+	assert_bool(entity.has_component(C_TestA)).is_true()
+	assert_bool(entity.has_component(C_TestB)).is_true()
+	assert_bool(entity.has_component(C_TestC)).is_true()
+
+	# Remove multiple components by instance
+	entity.remove_components([comp1, comp2])
+
+	# Test that the components were removed
+	assert_bool(entity.has_component(C_TestA)).is_false()
+	assert_bool(entity.has_component(C_TestB)).is_false()
+	# Test that C_TestC is still there
+	assert_bool(entity.has_component(C_TestC)).is_true()
+
+
+func test_remove_components_mixed():
+	var entity = auto_free(TestB.new())
+	var comp1 = C_TestA.new()
+	var comp2 = C_TestB.new()
+	var comp3 = C_TestC.new()
+
+	# Add multiple components
+	entity.add_components([comp1, comp2, comp3])
+
+	# Remove with mixed Script and instance
+	entity.remove_components([C_TestA, comp2])
+
+	# Test that the components were removed
+	assert_bool(entity.has_component(C_TestA)).is_false()
+	assert_bool(entity.has_component(C_TestB)).is_false()
+	# Test that C_TestC is still there
+	assert_bool(entity.has_component(C_TestC)).is_true()

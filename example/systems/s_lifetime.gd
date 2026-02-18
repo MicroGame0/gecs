@@ -2,10 +2,17 @@ class_name LifetimeSystem
 extends System
 
 func query() -> QueryBuilder:
-	return q.with_all([C_Lifetime])
+	return q.with_all([C_Lifetime]).iterate([C_Lifetime])
 
-func process(entity: Entity, delta: float) -> void:
-	var c_lifetime = entity.get_component(C_Lifetime) as C_Lifetime
-	c_lifetime.lifetime -= delta
-	if c_lifetime.lifetime <= 0.0:
-		ECS.world.remove_entity(entity)
+
+func process(entities: Array[Entity], components: Array, delta: float) -> void:
+	var lifetimes = components[0] # C_Lifetime (first in iterate)
+
+	# Use forward iteration with CommandBuffer for cleaner code
+	for i in range(entities.size()):
+		var c_lifetime = lifetimes[i]
+		if c_lifetime != null:
+			c_lifetime.lifetime -= delta
+			if c_lifetime.lifetime <= 0.0:
+				# Queue entity removal - executed after system completes
+				cmd.remove_entity(entities[i])
