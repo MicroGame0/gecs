@@ -1,18 +1,15 @@
-class_name E_NetworkProjectile
-extends Entity
 ## Projectile entity for the network example.
-## Demonstrates spawn-only sync - NO CN_SyncEntity means server broadcasts
-## spawn data once, then all clients simulate locally.
+## Demonstrates spawn-only sync via CN_NetSync with SPAWN_ONLY properties.
+## Server spawns and broadcasts component values once; clients simulate locally.
+class_name Projectile
+extends Entity
 
 
 func define_components() -> Array:
 	return [
-		# Server-owned (peer_id = 0)
-		CN_NetworkIdentity.new(0),
-		C_Projectile.new(),
+		CN_NetworkIdentity.new(0), # Required: peer_id=0 means server-owned
+		CN_NetSync.new(), # Required: enables SPAWN_ONLY property sync for C_NetPosition/C_NetVelocity
+		C_NetPosition.new(),
 		C_NetVelocity.new(),
-		C_NetPosition.new(),  # Position synced at spawn
-		# NOTE: No CN_SyncEntity! This enables spawn-only sync pattern.
-		# Server spawns and broadcasts component values at spawn time.
-		# Clients receive spawn RPC and simulate locally from there.
+		C_Projectile.new(),
 	]

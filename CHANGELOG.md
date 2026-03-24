@@ -2,6 +2,280 @@
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- **Project Settings namespace migration**: `gecs_network/sync/*` renamed to `gecs/network/sync/*`.
+  All four settings are affected:
+  - `gecs_network/sync/high_hz` → `gecs/network/sync/high_hz`
+  - `gecs_network/sync/medium_hz` → `gecs/network/sync/medium_hz`
+  - `gecs_network/sync/low_hz` → `gecs/network/sync/low_hz`
+  - `gecs_network/sync/reconciliation_interval` → `gecs/network/sync/reconciliation_interval`
+
+  **Migration**: Open Project Settings and update any overrides from the old paths to the new ones.
+  Default values are unchanged.
+
+### Changed
+
+- **Addon merge**: `addons/gecs_network/` has been merged into `addons/gecs/network/`.
+  The GECS Network module is now included in the main GECS addon — no separate plugin install needed.
+  Enable the `gecs` plugin only; all networking classes are available immediately.
+- Network test files moved from `addons/gecs_network/tests/` to `addons/gecs/tests/network/`.
+- New `GECSNetworkSettings` class with typed constants for all `gecs/network/sync/*` setting paths.
+
+## [6.9.0] - 2026-03-16 - GECS Network + Core Reliability Audit
+
+## Summary
+
+6.9.0 is a dual release: it ships **GECS Network**, a new multiplayer synchronization addon, and a **5-phase core reliability audit** that hardened the observer signal chain, query cache, archetype edge cases, component lifecycle, and hot-path performance.
+
+---
+
+## Core Reliability Audit
+
+### Phase 1 — Observer Signal Chain
+
+Fixed three correctness bugs in the observer/reactive system that caused ghost connections and missed or double-fired notifications.
+
+**Fixed:**
+
+- **OBS-03** — `property_changed` signal was not disconnected in `remove_component()` or `_initialize()`, causing ghost connections that fired on stale entities. Fixed by disconnecting in both paths and using a shallow duplicate for pre-world components instead of the original reference.
+- `remove_entity()` teardown order guaranteed: components are disconnected before the entity is freed.
+- Observer doc-comments updated to document the three guaranteed behaviors.
+
+**Tests added:**
+
+- `test_observers.gd` — regression scaffold for OBS-01, OBS-02, OBS-03 (19 cases, all green)
+- `O_InstanceCapturingObserver` test helper for deterministic observer testing
+
+---
+
+### Phase 2 — Cache Invalidation Scoping
+
+Fixed four cache invalidation bugs that caused stale query results during nested structural changes.
+
+**Fixed:**
+
+- **CACHE-01** — Cache was never invalidated when a component was added to an entity that already had components (boolean `_invalidating` flag blocked re-entry). Replaced flag with a depth counter so nested invalidations complete correctly.
+- **CACHE-02** — Cache invalidated too broadly: any structural change wiped the entire cache. Scoped invalidation to only affected archetypes.
+- **CACHE-04** — Invalidation did not fire when entities were removed from the world mid-query.
+
+**Tests added:**
+
+- `test_cache_invalidation.gd` — 4 RED regression tests covering CACHE-01/02/03/04, all turned GREEN
+
+---
+
+### Phase 3 — Archetype Edge Cache Hardening
+
+Fixed three archetype transition edge cases that produced incorrect query results after component additions/removals.
+
+**Fixed:**
+
+- **ARCH-01** — After removing a component, the entity's archetype was not updated in `entity_to_archetype`, causing future queries to return it under the wrong archetype.
+- **ARCH-02** — Adding a component to an entity caused it to appear in both old and new archetype buckets simultaneously.
+- **ARCH-03** — Neighbor tracking added to `Archetype` — each archetype now tracks which archetypes it transitions to on add/remove, enabling targeted cache invalidation instead of full-cache sweeps.
+
+**Tests added:**
+
+- 5 RED regression tests for ARCH-01/02/03, all turned GREEN after fixes
+
+---
+
+### Phase 4 — Component Lifecycle and Relationship Queries
+
+Fixed component duplication semantics and removed a dead relationship query API.
+
+**Fixed:**
+
+- **COMP-01/COMP-03** — `duplicate(true)` (deep copy) was used when cloning components, which erased non-`@export` runtime properties. Replaced with a shallow property copy that preserves all vars while still producing a distinct instance.
+- `remove_entity()` — `remove_child()` now called synchronously before `queue_free()` to prevent a one-frame window where the entity node still exists in the tree after removal.
+- Guard added to the `q` getter against nil `ECS.world` to prevent orphan scanner crashes.
+
+**Removed:**
+
+- `with_reverse_relationship()` from `QueryBuilder` — dead API with no tests, no callers, no documentation. Removed along with the backing `reverse_relationship_index` dict in `world.gd`.
+
+**Tests added:**
+
+- RED regression tests for COMP-01 and COMP-03 non-`@export` property preservation
+
+---
+
+### Phase 5 — Performance Baselines and Regression Infrastructure
+
+Applied two hot-path optimizations to the observer notification path and validated with JSONL benchmarks.
+
+**Optimized:**
+
+- **PERF-02** — `watch()` virtual method was called on every component change event (once per observer per notification). Now called once at `add_observer()` time; result cached in `_observer_watch_cache: Dictionary`. Eliminated per-notification virtual dispatch overhead.
+- **PERF-01** — `_handle_observer_component_added` and `_handle_observer_component_changed` used `Array.has(entity)` (O(N) scan) to check entity membership in query results. Replaced with `entities_matching.has(entity)` against the `_query()` result array — correct semantics with O(1) dict lookup.
+
+**Benchmark results (4.6-stable, 10,000 entities):**
+
+- `observer_component_additions`: 3789ms → **1362ms** (−64%)
+- `query_caching`: 3.794ms → 4.218ms (within noise — no regression)
+
+**Infrastructure:**
+
+- Pre-fix and post-fix JSONL baselines recorded in `reports/perf/` for all benchmark categories
+- Debugger now supports `--instance-id` flag to target specific Godot instances during debugging sessions
+
+---
+
+## GECS Network — Multiplayer Synchronization Addon
+
+This Version also adds **GECS Network**, a new addon that provides multiplayer entity synchronization for GECS-based games. It enables networked gameplay by automatically synchronizing entities, components, and their properties across clients using Godot's built-in multiplayer system.
+
+## Key Features
+
+### 🎮 Two Sync Patterns
+
+1. **Spawn-Only Sync** - For deterministic entities (projectiles, effects)
+   - Sync once at spawn, clients simulate locally
+   - Minimal bandwidth usage
+   - Perfect for predictable behavior
+
+2. **Continuous Sync** - For dynamic entities (players, enemies)
+   - Real-time position/state updates via MultiplayerSynchronizer
+   - Native Godot networking integration
+   - Configurable update rates and interpolation
+
+### 🔧 Project-Agnostic Design
+
+- **No hardcoded components** - Fully configurable via `SyncConfig`
+- **Generic implementation** - Works with any GECS project
+- **Middleware pattern** - Clean separation between generic addon and project-specific logic
+- **Signal-based reactive architecture** - Optimal for async networking
+
+### 📦 Component-Based Configuration
+
+```gdscript
+class_name ProjectSyncConfig
+extends SyncConfig
+
+func _init() -> void:
+    component_priorities = {
+        "C_Velocity": Priority.HIGH,
+        "C_Health": Priority.MEDIUM,
+        "C_NetworkIdentity": Priority.LOW,
+    }
+    transform_component = "C_Transform"
+    model_ready_component = "C_Instantiated"
+```
+
+### 🏗️ Three-Layer Architecture
+
+```
+┌─────────────────────────────────────┐
+│  addons/gecs/network/               │ ← Generic, reusable module
+│  - NetworkSync (signals, RPCs)      │
+│  - SyncConfig (configuration)       │
+│  - Network components                │
+└─────────────────────────────────────┘
+              ↓ signals
+┌─────────────────────────────────────┐
+│  game/network/NetworkMiddleware     │ ← Optional project layer
+│  - Project-specific networking      │
+│  - Visual property handling          │
+└─────────────────────────────────────┘
+              ↑ uses
+┌─────────────────────────────────────┐
+│  game/                              │ ← Game code
+│  - ProjectSyncConfig                │
+│  - Components & Systems              │
+└─────────────────────────────────────┘
+```
+
+## What's Included
+
+### Core Files
+
+- `network_sync.gd` - Main synchronization orchestrator (signal-based)
+- `sync_config.gd` - Configuration resource for component priorities and filtering
+- `net_adapter.gd` - Multiplayer API abstraction layer
+- `sync_component.gd` - Base class for components with network sync
+- `plugin.gd` / `plugin.cfg` - Godot plugin integration
+
+### Components
+
+- `C_NetworkIdentity` - Authority and ownership tracking
+- `C_SyncEntity` - Enables continuous synchronization
+- `C_LocalAuthority` - Marker for locally controlled entities
+- `C_RemoteEntity` - Marker for remotely controlled entities
+- `C_ServerOwned` - Marker for server-owned entities
+
+### Documentation
+
+- `README.md` - Complete usage guide with examples
+  - Quick start (5 steps)
+  - Sync pattern explanations
+  - Component serialization guide
+  - Troubleshooting section
+  - Best practices
+
+## Technical Highlights
+
+### Signal-Based Reactive Architecture
+
+Unlike traditional ECS systems that process sequentially, networking is inherently async/parallel. This addon uses Godot signals for immediate reactive responses to component changes, making it ideal for networked games.
+
+### Component Serialization
+
+Components automatically sync `@export` properties at spawn:
+
+```gdscript
+class_name C_Projectile
+extends Component
+
+@export var damage: int = 0        # Synced at spawn
+@export var speed: float = 10.0    # Synced at spawn
+@export var color: Color = Color.WHITE  # Synced at spawn
+```
+
+### Authority Model
+
+```gdscript
+C_NetworkIdentity.new(0)   # Server-owned (enemies, projectiles)
+C_NetworkIdentity.new(1)   # Host player
+C_NetworkIdentity.new(N)   # Client player (peer_id > 1)
+```
+
+### Bandwidth Optimization
+
+- Priority-based update queuing (HIGH/MEDIUM/LOW)
+- Configurable component filtering
+- Transform batching (position + rotation)
+- Spawn-only sync for deterministic entities
+
+## Integration Example
+
+```gdscript
+# In your main scene:
+func _setup_network_sync() -> void:
+    var network_sync = NetworkSync.attach_to_world(world, ProjectSyncConfig.new())
+    network_sync.debug_logging = true
+```
+
+That's it! The addon handles all entity and component synchronization automatically.
+
+## Why Add This to GECS?
+
+1. **Completes the ECS Framework** - GECS provides local game logic; the GECS network module adds multiplayer
+2. **Zero-Configuration Networking** - Projects just attach NetworkSync and define their SyncConfig
+3. **Godot-Native** - Uses built-in MultiplayerAPI, no external dependencies
+4. **Production Ready** - Clean, documented
+5. **Community Value** - Multiplayer is a common need for GECS users
+
+## License
+
+This addon is contributed under the same CC0-1.0 license as GECS (public domain).
+
+## Credits
+
+Developed by **Code Fixxers** team during the Arena Survivors MVP project.
+
+Additional Dev work by @csprance
+
 ## [6.8.0] - CommandBuffer System
 
 ### New Features
@@ -11,9 +285,11 @@
 Callable-based deferred execution buffer for safe structural ECS changes during iteration. Eliminates the need for backwards iteration or defensive snapshots.
 
 **New Files:**
+
 - `addons/gecs/ecs/command_buffer.gd` — CommandBuffer class (extends RefCounted)
 
 **API:**
+
 ```gdscript
 # Inside any System, use the cmd property:
 cmd.add_component(entity, component)
@@ -26,17 +302,20 @@ cmd.add_custom(callable)
 ```
 
 **Flush Modes** (configurable per-system via `command_buffer_flush_mode`):
+
 - **PER_SYSTEM** (default) — executes after each system completes
 - **PER_GROUP** — executes after all systems in the group complete
 - **MANUAL** — requires explicit `ECS.world.flush_command_buffers()` call
 
 **Architecture:**
+
 - Each queue method appends a lambda to `Array[Callable]` with baked-in `is_instance_valid` guard
 - Commands execute in exact queued order (preserves user intent)
 - Single cache invalidation per `execute()` call
 - Statistics tracking: `commands_queued`, `commands_executed`, `last_execution_time_ms`
 
 **Migration:**
+
 ```gdscript
 # Before (backwards iteration)
 for i in range(entities.size() - 1, -1, -1):
@@ -72,6 +351,7 @@ for entity in entities:
 ## [6.7.2] - 2025-11-29 - Critical Query Cache Bugfix
 
 ### Fixed
+
 - **CRITICAL:** Fixed query cache bug causing stale results when entities moved between existing archetypes
   - QueryBuilder.execute() caches full entity lists, not just archetype matches
   - Cache invalidation now triggers on all structural changes (component add/remove, entity removal)
@@ -82,6 +362,7 @@ for entity in entities:
 ## [6.7.1] - Previous Release
 
 ### Removed
+
 - Removed the unused QueryBuilder pooling infrastructure; `World.query` now always creates a fresh builder while retaining cache invalidation wiring for clarity and predictable lifecycle management.
 
 ## [5.0.0] - 2025-10-15 - Major ECS Overhaul & Performance Awesomeness (Some Small Breaking Changes)

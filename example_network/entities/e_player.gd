@@ -1,30 +1,26 @@
-class_name E_NetworkPlayer
-extends Entity
 ## Player entity for the network example.
-## Demonstrates continuous sync via CN_SyncEntity.
+## Demonstrates smooth network sync via CN_NetSync with velocity dead-reckoning
+## and position correction for remote entities (see S_NetworkMovement).
+class_name Player
+extends Entity
 
-## Peer ID that owns this player (set by main.gd when spawning)
-@export var owner_peer_id: int = 0
-
-
-func _enter_tree() -> void:
-	# Extract peer_id from node name (set by main.gd as str(peer_id))
-	var authority_id = str(name).to_int()
-	if authority_id > 0:
-		owner_peer_id = authority_id
-		set_multiplayer_authority(authority_id)
-
-
-func on_ready() -> void:
-	# Add network identity based on owner_peer_id
-	add_component(CN_NetworkIdentity.new(owner_peer_id))
+@onready var visual: CSGBox3D = %Visual
 
 
 func define_components() -> Array:
 	return [
+		CN_NetworkIdentity.new(), # Required: marks entity as networked, stores owning peer_id
+		CN_NetSync.new(), # Required: enables property sync using @export_group priority tiers
+		C_NetPosition.new(), # Position synced at HIGH (~20 Hz); remote clients interpolate
 		C_NetVelocity.new(),
 		C_PlayerInput.new(),
-		C_PlayerNumber.new(),  # Join order number (1-4) for color assignment
-		# CN_SyncEntity enables native MultiplayerSynchronizer for position/rotation
-		CN_SyncEntity.new(true, true, false),  # sync_position=true, sync_rotation=true
+		C_PlayerNumber.new(),
+		C_NewPlayer.new(),
 	]
+
+
+# Help function to set visual color based on player number (called from PlayerInitSystem)
+func set_visual_color(color: Color) -> void:
+	if visual.material_override == null:
+		visual.material_override = StandardMaterial3D.new()
+	visual.material_override.albedo_color = color

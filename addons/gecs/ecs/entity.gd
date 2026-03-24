@@ -40,6 +40,10 @@ signal component_property_changed(
 signal relationship_added(entity: Entity, relationship: Relationship)
 ## Emit when a [Relationship] is removed from the [Entity]
 signal relationship_removed(entity: Entity, relationship: Relationship)
+## Emitted when multiple [Relationship]s are added in a batch via [method add_relationships]
+signal relationships_batch_added(entity: Entity, _relationships: Array)
+## Emitted when multiple [Relationship]s are removed in a batch via [method remove_relationships]
+signal relationships_batch_removed(entity: Entity, _relationships: Array)
 
 #endregion Signals
 
@@ -78,6 +82,11 @@ var _entityLogger = GECSLogger.new().domain("Entity")
 ## We can store ephemeral state on the entity
 var _state = {}
 
+## Stable integer ID assigned by World during registration.
+## Used for deterministic relationship slot key generation (not the same as the string UUID `id`).
+## Value is 0 until the entity is registered with a World.
+var ecs_id: int = 0
+
 #endregion Public Variables
 
 #region Built-in Virtual Methods
@@ -90,7 +99,11 @@ func _initialize(_components: Array = []) -> void:
 
 	# because components can be added before the entity is added to the world
 	# replay adding components here so signals pick them up and the index is updated
-	var temp_comps = components.values().duplicate_deep()
+	# Use a shallow duplicate (same instances) so the caller's reference remains the
+	# live instance in entity.components after _initialize. deep-copying here created
+	# ghost property_changed connections on the original instances that could never be
+	# cleaned up by remove_component() (which only disconnects the stored copy).
+	var temp_comps = components.values().duplicate()
 	components.clear()
 	for comp in temp_comps:
 		add_component(comp)
@@ -105,9 +118,24 @@ func _initialize(_components: Array = []) -> void:
 	# Add components passed in directly to the _initialize method to override everything else
 	component_resources.append_array(_components)
 
+	## [b]Note:[/b] Items in [code]component_resources[/code] are shallow-duplicated
+	## ([code]duplicate()[/code]) — a new [Resource] object is created and all top-level
+	## property values (including non-[code]@export[/code] vars) are copied, but nested
+	## sub-resource references are shared between entities.[br]
+	## Always return fresh [code].new()[/code] instances from [method define_components]
+	## to avoid unintentional state sharing.[br]
 	# Initialize components
+	# Shallow-copy each component so each entity gets its own Resource instance
+	# while preserving ALL top-level property values — including non-@export vars.
+	# We cannot use res.duplicate() (only copies @export props) or res.duplicate(true)
+	# (deep-copies sub-resources, resetting non-@export vars to script defaults).
+	# Instead we create a new instance via the same script and copy every property.
 	for res in component_resources:
-		add_component(res.duplicate(true))
+		var copy: Component = res.get_script().new()
+		for prop in res.get_property_list():
+			if prop.usage & (PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_SCRIPT_VARIABLE):
+				copy.set(prop.name, res.get(prop.name))
+		add_component(copy)
 
 	# Call the lifecycle method on_ready
 	on_ready()
@@ -187,7 +215,7 @@ func add_components(_components: Array):
 	if ECS.world and ECS.world.entity_to_archetype.has(self ):
 		var old_archetype = ECS.world.entity_to_archetype[ self ]
 		var new_signature = ECS.world._calculate_entity_signature(self )
-		var comp_types = components.keys()
+		var comp_types = ECS.world._get_entity_archetype_keys(self )
 		var new_archetype = ECS.world._get_or_create_archetype(new_signature, comp_types)
 
 		# Only move if we actually need a different archetype
@@ -200,9 +228,7 @@ func add_components(_components: Array):
 
 			# Clean up empty old archetype
 			if old_archetype.is_empty():
-				old_archetype.add_edges.clear()
-				old_archetype.remove_edges.clear()
-				ECS.world.archetypes.erase(old_archetype.signature)
+				ECS.world._delete_archetype(old_archetype)
 		else:
 			# Same archetype - just update the column data for new components
 			for component in added_components:
@@ -235,6 +261,12 @@ func remove_component(component: Resource) -> void:
 
 		# Clean up cache entry for the component instance
 		_component_path_cache.erase(component_instance)
+
+		# OBS-03: Disconnect property_changed before emitting removal signal.
+		# Without this, phantom on_component_changed callbacks arrive whenever
+		# the removed component's setters emit property_changed after removal.
+		if component_instance.property_changed.is_connected(_on_component_property_changed):
+			component_instance.property_changed.disconnect(_on_component_property_changed)
 
 		component_removed.emit(self , component_instance)
 		# ARCHETYPE: Signal handler (_on_entity_component_removed) handles archetype update
@@ -274,6 +306,12 @@ func remove_components(_components: Array):
 			var component_path = comp_to_remove.get_script().resource_path
 			if components.has(component_path):
 				components.erase(component_path)
+				# Clean up cache entries for both the class and instance
+				_component_path_cache.erase(_component)
+				_component_path_cache.erase(comp_to_remove)
+				# OBS-03: Disconnect property_changed before emitting removal signal.
+				if comp_to_remove.property_changed.is_connected(_on_component_property_changed):
+					comp_to_remove.property_changed.disconnect(_on_component_property_changed)
 				removed_components.append(comp_to_remove)
 
 	# If no components were actually removed, return early
@@ -284,7 +322,7 @@ func remove_components(_components: Array):
 	if ECS.world and ECS.world.entity_to_archetype.has(self ):
 		var old_archetype = ECS.world.entity_to_archetype[ self ]
 		var new_signature = ECS.world._calculate_entity_signature(self )
-		var comp_types = components.keys()
+		var comp_types = ECS.world._get_entity_archetype_keys(self )
 		var new_archetype = ECS.world._get_or_create_archetype(new_signature, comp_types)
 
 		# Only move if we actually need a different archetype
@@ -297,9 +335,7 @@ func remove_components(_components: Array):
 
 			# Clean up empty old archetype
 			if old_archetype.is_empty():
-				old_archetype.add_edges.clear()
-				old_archetype.remove_edges.clear()
-				ECS.world.archetypes.erase(old_archetype.signature)
+				ECS.world._delete_archetype(old_archetype)
 
 	# Emit signals for all removed components
 	for component in removed_components:
@@ -348,7 +384,13 @@ func add_relationship(relationship: Relationship) -> void:
 
 func add_relationships(_relationships: Array):
 	for relationship in _relationships:
-		add_relationship(relationship)
+		assert(
+			not relationship._is_query_relationship,
+			"Cannot add query relationships to entities. Query relationships (created with dictionaries) are for matching only, not for storage."
+		)
+		relationship.source = self
+		relationships.append(relationship)
+	relationships_batch_added.emit(self , _relationships)
 
 
 ## Removes a relationship from the entity.[br]
@@ -399,8 +441,28 @@ func remove_relationship(relationship: Relationship, limit: int = -1) -> void:
 ## [param _relationships] Array of [Relationship]s to remove.[br]
 ## [param limit] Maximum number of relationships to remove per relationship type. -1 = all (default), 0 = none, >0 = up to that many.
 func remove_relationships(_relationships: Array, limit: int = -1):
+	var all_removed: Array = []
 	for relationship in _relationships:
-		remove_relationship(relationship, limit)
+		if limit == 0:
+			continue
+		var to_remove = []
+		var removed_count = 0
+		var pattern_remove = true
+		if relationships.has(relationship):
+			to_remove.append(relationship)
+			pattern_remove = false
+		if pattern_remove:
+			for rel in relationships:
+				if rel.matches(relationship):
+					to_remove.append(rel)
+					removed_count += 1
+					if limit > 0 and removed_count >= limit:
+						break
+		for rel in to_remove:
+			relationships.erase(rel)
+			all_removed.append(rel)
+	if not all_removed.is_empty():
+		relationships_batch_removed.emit(self , all_removed)
 
 
 ## Removes all relationships from the entity.
@@ -487,7 +549,11 @@ func on_enable() -> void:
 
 
 ## Define the default components in code to use (Instead of in the editor)[br]
-## This should return a list of components to add by default when the entity is created
+## This should return a list of components to add by default when the entity is created[br]
+## [b]Important:[/b] Always return fresh [code].new()[/code] instances from this method.[br]
+## Items returned here are shallow-duplicated during [method _initialize] —
+## returning a cached/shared instance would cause all entities of this type to
+## share the same sub-resource references.[br]
 func define_components() -> Array:
 	return []
 
@@ -503,7 +569,9 @@ func _on_enabled_changed(old_value: bool, new_value: bool) -> void:
 	var archetype = ECS.world.entity_to_archetype[ self ]
 	archetype.update_entity_enabled_state(self , new_value)
 
-	# Invalidate query cache since archetypes changed
-	ECS.world.cache_invalidated.emit()
+	# Invalidate query cache since entity enabled state changed.
+	# Route through _invalidate_cache so batch suppression (_begin_suppress/_end_suppress)
+	# can coalesce multiple enable/disable operations into a single cache flush.
+	ECS.world._invalidate_cache("entity_enabled_changed")
 
 #endregion Lifecycle Methods
